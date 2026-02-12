@@ -1,4 +1,5 @@
 # afes_BE
 Backend of afes project
 
-Run: ./mvnw clean install
+Build: ./mvnw clean install
+Run: ./mvnw spring-boot:run

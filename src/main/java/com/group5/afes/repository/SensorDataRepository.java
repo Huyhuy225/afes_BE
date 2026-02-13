@@ -6,5 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
-    // JpaRepository đã cung cấp sẵn các hàm save(), findAll(), findById()...
+    // Tự động sinh query lấy 1 bản ghi có ID lớn nhất
+    SensorData findTopByOrderByIdDesc();
 }

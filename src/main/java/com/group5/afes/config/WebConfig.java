@@ -9,10 +9,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Áp dụng cho tất cả API
-                .allowedOrigins("http://localhost:5173") // Chỉ cho phép cổng của Vite
+        registry.addMapping("/**") // Áp dụng cho tất cả các API
+                // Dùng allowedOriginPatterns thay cho allowedOrigins để tránh lỗi khi dùng Credentials
+                .allowedOriginPatterns("*")
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .allowCredentials(true);
+                .allowCredentials(true) // Cho phép gửi kèm Cookie/Auth Header
+                .maxAge(3600); // Lưu cache cấu hình CORS trong 1 giờ
     }
 }

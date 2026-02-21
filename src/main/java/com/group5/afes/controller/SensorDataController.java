@@ -8,7 +8,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/sensors")
-@CrossOrigin(origins = "*") // Cho phép các thiết bị/web khác truy cập
 public class SensorDataController {
 
     @Autowired
@@ -24,5 +23,14 @@ public class SensorDataController {
     @GetMapping("/history")
     public List<SensorData> getHistory() {
         return repository.findAll();
+    }
+
+    @Autowired
+    private SensorDataRepository sensorDataRepository;
+
+    @GetMapping("/history/latest")
+    public SensorData getLatest() {
+        // Trả về bản ghi mới nhất dựa trên ID hoặc Timestamp
+        return sensorDataRepository.findTopByOrderByIdDesc();
     }
 }

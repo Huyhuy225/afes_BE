@@ -7,3 +7,6 @@ CREATE TABLE history_log (
     fire_detected BIT(1) NOT NULL,    -- Lưu trạng thái boolean (0 hoặc 1)
     timestamp DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+INSERT INTO history_log (temperature, gas_level, fire_detected, timestamp)
+VALUES (45.2, 550.0, 1, NOW());

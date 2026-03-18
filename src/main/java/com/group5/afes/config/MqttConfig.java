@@ -26,6 +26,11 @@ public class MqttConfig {
     @Value("${mqtt.topic}")
     private String topic;
 
+    @Value("${mqtt.username}")
+    private String username;
+
+    @Value("${mqtt.password}")
+    private String password;
     @Autowired
     private MqttReceiver mqttReceiver; // Tiêm thằng Receiver vào đây
 
@@ -35,6 +40,10 @@ public class MqttConfig {
         MqttConnectOptions options = new MqttConnectOptions();
         options.setServerURIs(new String[] { brokerUrl });
         options.setAutomaticReconnect(true);
+
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
+
         factory.setConnectionOptions(options);
         return factory;
     }

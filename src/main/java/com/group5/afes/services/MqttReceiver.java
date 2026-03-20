@@ -1,4 +1,4 @@
-package com.group5.afes.service;
+package com.group5.afes.services;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group5.afes.dto.SensorDataDTO;
@@ -16,29 +16,30 @@ public class MqttReceiver implements MessageHandler {
 
     @Autowired
     private SensorDataRepository sensorDataRepository;
-
-    // XÓA DÒNG @Autowired ở đây
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void handleMessage(Message<?> message) throws MessagingException {
         try {
             String payload = message.getPayload().toString();
-
-            // Sử dụng objectMapper đã khởi tạo ở trên
             SensorDataDTO dto = objectMapper.readValue(payload, SensorDataDTO.class);
 
             SensorData sensorData = new SensorData();
-            sensorData.setTemperature(dto.getTemperature());
-            sensorData.setGasLevel(dto.getSmoke());
-            sensorData.setTimestamp(LocalDateTime.now());
+            if (dto.getMq2_1() != null) {
+                sensorData.setGasLevel(dto.getMq2_1().getSmoke());
+            } else {
+                sensorData.setGasLevel(0.0f);
+            }
 
+            sensorData.setTemperature(0.0f);
+
+            sensorData.setTimestamp(LocalDateTime.now());
             sensorDataRepository.save(sensorData);
 
-            System.out.println("🚀 [DATABASE] LUU THANH CONG: " + payload);
+            System.out.println("Success saving data: " + payload);
 
         } catch (Exception e) {
-            System.err.println("❌ [ERROR] MQTT Data Error: " + e.getMessage());
+            System.err.println("[ERROR] MQTT Data Error: " + e.getMessage());
         }
     }
 }

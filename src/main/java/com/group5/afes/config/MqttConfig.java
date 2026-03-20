@@ -1,6 +1,6 @@
 package com.group5.afes.config;
 
-import com.group5.afes.service.MqttReceiver; // Đảm bảo import đúng Receiver của bạn
+import com.group5.afes.services.MqttReceiver; // Đảm bảo import đúng Receiver của bạn
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

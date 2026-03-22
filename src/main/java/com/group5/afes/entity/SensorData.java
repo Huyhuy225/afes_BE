@@ -5,14 +5,19 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 @Entity
+@Table(name = "sensor_data")
 @Data
-@Table(name = "history_log")
 public class SensorData {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private float temperature;    // Dữ liệu từ DHT20 [cite: 19]
-    private float gasLevel;       // Dữ liệu từ MQ-2 [cite: 18]
-    private boolean fireDetected; // Kết quả từ thuật toán fusion [cite: 56]
-    private LocalDateTime timestamp = LocalDateTime.now();
+    private String topic;
+    @Column(name = "sensor_name")
+    private String sensorName;
+    @Column(name = "main_value")
+    private Float mainValue;
+    @Column(columnDefinition = "JSON")
+    private String details;
+    private String status;
+    private LocalDateTime timestamp;
 }

@@ -1,6 +1,6 @@
 package com.group5.afes.config;
 
-import com.group5.afes.services.MqttReceiver; // Đảm bảo import đúng Receiver của bạn
+import com.group5.afes.services.MqttReceiver;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,14 +23,15 @@ public class MqttConfig {
     @Value("${mqtt.client.id}")
     private String clientId;
 
-    @Value("${mqtt.topic}")
-    private String topic;
+    @Value("${mqtt.topics}")
+    private String[] topics;
 
     @Value("${mqtt.username}")
     private String username;
 
     @Value("${mqtt.password}")
     private String password;
+
     @Autowired
     private MqttReceiver mqttReceiver; // Tiêm thằng Receiver vào đây
 
@@ -55,16 +56,16 @@ public class MqttConfig {
 
     @Bean
     public MqttPahoMessageDrivenChannelAdapter inbound() {
+        // Đưa mảng topics vào đây
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId, mqttClientFactory(), topic);
+                new MqttPahoMessageDrivenChannelAdapter(clientId, mqttClientFactory(), topics);
         adapter.setCompletionTimeout(5000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
-        adapter.setOutputChannel(mqttInputChannel()); // Nối vào channel nội bộ
+        adapter.setOutputChannel(mqttInputChannel());
         return adapter;
     }
 
-    // ĐÂY LÀ "MỐI NỐI" QUYẾT ĐỊNH: Ép channel phải gửi cho Receiver
     @Bean
     public EventDrivenConsumer consumer() {
         return new EventDrivenConsumer(mqttInputChannel(), mqttReceiver);

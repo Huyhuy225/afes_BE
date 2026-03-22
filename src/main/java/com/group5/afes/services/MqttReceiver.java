@@ -23,6 +23,7 @@ public class MqttReceiver implements MessageHandler {
     // Định nghĩa topic y hệt bên Node.js
     private static final String TOPIC_FLAME = "yolo_uno/sensors/flame";
     private static final String TOPIC_SMOKE = "yolo_uno/sensors/smoke";
+    private static final String TOPIC_DHT20 = "yolo_uno/sensors/dht20";
 
     @Override
     public void handleMessage(Message<?> message) throws MessagingException {
@@ -66,13 +67,27 @@ public class MqttReceiver implements MessageHandler {
 
                     float f1 = (float) f.get("FLAME1").asDouble();
                     float f2 = (float) f.get("FLAME2").asDouble();
-                    // Lấy giá trị nhỏ nhất theo đúng logic Node.js
-                    data.setMainValue(Math.min(f1, f2));
+                    // Lấy giá trị lớn nhất để biểu diễn mức cháy mạnh nhất.
+                    data.setMainValue(Math.max(f1, f2));
                     data.setDetails(f.toString());
                     data.setTimestamp(LocalDateTime.now());
 
                     sensorDataRepository.save(data);
                     System.out.println("🚀 [DATABASE] Đã lưu bản ghi FLAME thành công!");
+                }
+            } else if (TOPIC_DHT20.equals(topic)) {
+                if (rootNode.has("dht20_data")) {
+                    JsonNode d = rootNode.get("dht20_data");
+
+                    SensorData data = new SensorData();
+                    data.setTopic(topic);
+                    data.setSensorName("DHT20");
+                    data.setMainValue((float) d.get("TEMP").asDouble());
+                    data.setDetails(d.toString());
+                    data.setTimestamp(LocalDateTime.now());
+
+                    sensorDataRepository.save(data);
+                    System.out.println("🚀 [DATABASE] Đã lưu bản ghi DHT20 thành công!");
                 }
             }
         } catch (Exception e) {

@@ -57,6 +57,17 @@ public class ControlController {
         return publish("emergency_alert");
     }
 
+    @PostMapping("/emergency-off")
+    public ResponseEntity<?> emergencyOff() {
+        return publish("emergency_off");
+    }
+
+    /** Tắt toàn bộ đầu ra thủ công: LED, còi, bơm — tương đương về phần cứng với emergency_off */
+    @PostMapping("/outputs-off")
+    public ResponseEntity<?> allOutputsOff() {
+        return publish("all_outputs_off");
+    }
+
     private ResponseEntity<?> publish(String action) {
         try {
             controlPublisherService.publishAction(action);

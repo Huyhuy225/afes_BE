@@ -46,27 +46,32 @@ public class ControlController {
     }
 
     @PostMapping("/reset")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> reset() {
         return publish("reset_system");
     }
 
     @PostMapping("/full-test")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> fullTest() {
         return publish("full_test");
     }
 
     @PostMapping("/emergency")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> emergency() {
         return publish("emergency_alert");
     }
 
     @PostMapping("/emergency-off")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> emergencyOff() {
         return publish("emergency_off");
     }
 
     /** Tắt toàn bộ đầu ra thủ công: LED, còi, bơm — tương đương về phần cứng với emergency_off */
     @PostMapping("/outputs-off")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> allOutputsOff() {
         return publish("all_outputs_off");
     }

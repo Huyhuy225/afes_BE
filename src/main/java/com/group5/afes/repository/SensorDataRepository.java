@@ -10,4 +10,14 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     SensorData findTopByOrderByIdDesc();
     SensorData findTopByRoom_IdOrderByIdDesc(Integer roomId);
     java.util.List<SensorData> findByRoom_IdOrderByTimestampDesc(Integer roomId);
+
+    SensorData findTopByRoom_IdAndTopicContainingOrderByTimestampDesc(Integer roomId, String topic);
+
+    SensorData findTopByRoom_IdAndTopicContainingAndSensorNameOrderByTimestampDesc(
+            Integer roomId,
+            String topic,
+            String sensorName
+    );
+
+    long countByRoom_Id(Integer roomId);
 }

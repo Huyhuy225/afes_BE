@@ -3,8 +3,11 @@ package com.group5.afes.services;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.group5.afes.entity.SensorData;
+import com.group5.afes.entity.Room;
 import com.group5.afes.repository.SensorDataRepository;
+import com.group5.afes.repository.RoomRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageHandler;
@@ -17,6 +20,12 @@ public class MqttReceiver implements MessageHandler {
 
     @Autowired
     private SensorDataRepository sensorDataRepository;
+
+    @Autowired
+    private RoomRepository roomRepository;
+
+    @Value("${sensor.default-room-code:ROOM-101}")
+    private String defaultRoomCode;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -50,6 +59,7 @@ public class MqttReceiver implements MessageHandler {
                         data.setMainValue((float) vals.get("SMOKE").asDouble());
                         // Lưu toàn bộ object con {"CO":..., "LPG":..., "SMOKE":...} vào details
                         data.setDetails(vals.toString());
+                        data.setRoom(resolveRoom(rootNode));
                         data.setTimestamp(LocalDateTime.now());
 
                         sensorDataRepository.save(data);
@@ -70,6 +80,7 @@ public class MqttReceiver implements MessageHandler {
                     // Lấy giá trị lớn nhất để biểu diễn mức cháy mạnh nhất.
                     data.setMainValue(Math.max(f1, f2));
                     data.setDetails(f.toString());
+                    data.setRoom(resolveRoom(rootNode));
                     data.setTimestamp(LocalDateTime.now());
 
                     sensorDataRepository.save(data);
@@ -84,6 +95,7 @@ public class MqttReceiver implements MessageHandler {
                     data.setSensorName("DHT20");
                     data.setMainValue((float) d.get("TEMP").asDouble());
                     data.setDetails(d.toString());
+                    data.setRoom(resolveRoom(rootNode));
                     data.setTimestamp(LocalDateTime.now());
 
                     sensorDataRepository.save(data);
@@ -93,5 +105,23 @@ public class MqttReceiver implements MessageHandler {
         } catch (Exception e) {
             System.err.println("❌ [ERROR] Lỗi parse JSON hoặc lưu DB: " + e.getMessage());
         }
+    }
+
+    private Room resolveRoom(JsonNode rootNode) {
+        if (rootNode != null) {
+            if (rootNode.hasNonNull("roomCode")) {
+                String roomCode = rootNode.get("roomCode").asText();
+                return roomRepository.findByCode(roomCode).orElseGet(this::findDefaultRoom);
+            }
+            if (rootNode.hasNonNull("room_id")) {
+                Integer roomId = rootNode.get("room_id").asInt();
+                return roomRepository.findById(roomId).orElseGet(this::findDefaultRoom);
+            }
+        }
+        return findDefaultRoom();
+    }
+
+    private Room findDefaultRoom() {
+        return roomRepository.findByCode(defaultRoomCode).orElse(null);
     }
 }

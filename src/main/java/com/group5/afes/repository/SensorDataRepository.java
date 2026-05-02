@@ -8,4 +8,6 @@ import org.springframework.stereotype.Repository;
 public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     // Tự động sinh query lấy 1 bản ghi có ID lớn nhất
     SensorData findTopByOrderByIdDesc();
+    SensorData findTopByRoom_IdOrderByIdDesc(Integer roomId);
+    java.util.List<SensorData> findByRoom_IdOrderByTimestampDesc(Integer roomId);
 }

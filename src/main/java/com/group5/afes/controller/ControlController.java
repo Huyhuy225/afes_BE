@@ -2,6 +2,7 @@ package com.group5.afes.controller;
 
 import com.group5.afes.services.ControlPublisherService;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -17,6 +18,7 @@ public class ControlController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")  // Only admin can control
     public ResponseEntity<?> control(@RequestBody Map<String, String> payload) {
         String action = payload.getOrDefault("action", "").trim();
         if (action.isEmpty()) {
@@ -26,6 +28,7 @@ public class ControlController {
     }
 
     @PostMapping("/pump")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> pump(@RequestBody Map<String, String> payload) {
         String state = payload.getOrDefault("state", "").trim().toLowerCase();
         if ("on".equals(state)) {

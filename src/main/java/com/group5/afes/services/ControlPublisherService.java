@@ -6,6 +6,8 @@ import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.group5.afes.entity.Room;
+
 @Service
 public class ControlPublisherService {
 
@@ -22,6 +24,10 @@ public class ControlPublisherService {
     private String controlTopic;
 
     public void publishAction(String action) throws Exception {
+        publishAction(action, null);
+    }
+
+    public void publishAction(String action, Room room) throws Exception {
         String clientId = "afes-control-" + System.currentTimeMillis();
         MqttClient client = new MqttClient(brokerUrl, clientId);
         try {
@@ -33,7 +39,9 @@ public class ControlPublisherService {
 
             client.connect(options);
 
-            String payload = "{\"action\":\"" + action + "\"}";
+                String payload = room == null
+                    ? "{\"action\":\"" + action + "\"}"
+                    : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + ",\"roomCode\":\"" + room.getCode() + "\",\"roomName\":\"" + room.getName() + "\"}";
             MqttMessage message = new MqttMessage(payload.getBytes());
             message.setQos(1);
             message.setRetained(false);

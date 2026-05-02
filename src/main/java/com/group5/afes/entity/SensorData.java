@@ -19,5 +19,8 @@ public class SensorData {
     @Column(columnDefinition = "JSON")
     private String details;
     private String status;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "room_id")
+    private Room room;
     private LocalDateTime timestamp;
 }

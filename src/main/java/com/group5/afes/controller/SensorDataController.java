@@ -21,9 +21,9 @@ public class SensorDataController {
         return repository.save(data); // Lưu trực tiếp vào Azure MySQL
     }
 
-    // API lấy lịch sử hiển thị lên Dashboard (GET) [cite: 37, 40]
+    // API lấy lịch sử hiển thị lên Dashboard (GET)
     @GetMapping("/history")
-    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")  // Both admin and user can view
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public List<SensorData> getHistory() {
         return repository.findAll();
     }
@@ -38,6 +38,7 @@ public class SensorDataController {
     private SensorDataRepository sensorDataRepository;
 
     @GetMapping("/history/latest")
+    @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public SensorData getLatest() {
         // Trả về bản ghi mới nhất dựa trên ID hoặc Timestamp
         return sensorDataRepository.findTopByOrderByIdDesc();

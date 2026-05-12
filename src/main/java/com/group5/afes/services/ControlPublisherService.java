@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.group5.afes.entity.Room;
+import java.nio.charset.StandardCharsets;
 
 @Service
 public class ControlPublisherService {
@@ -39,10 +40,11 @@ public class ControlPublisherService {
 
             client.connect(options);
 
-                String payload = room == null
-                    ? "{\"action\":\"" + action + "\"}"
-                    : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + ",\"roomCode\":\"" + room.getCode() + "\",\"roomName\":\"" + room.getName() + "\"}";
-            MqttMessage message = new MqttMessage(payload.getBytes());
+            String payload = room == null 
+                ? action 
+                : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
+            
+            MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
             message.setQos(1);
             message.setRetained(false);
 

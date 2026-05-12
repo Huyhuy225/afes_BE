@@ -190,12 +190,54 @@ public class MqttReceiver implements MessageHandler {
 
     private Room resolveRoom(JsonNode rootNode) {
         if (rootNode != null && rootNode.hasNonNull("roomCode")) {
-            return roomRepository.findByCode(rootNode.get("roomCode").asText()).orElseGet(this::findDefaultRoom);
+            Room resolved = resolveRoomByCode(rootNode.get("roomCode").asText());
+            return resolved != null ? resolved : findDefaultRoom();
         }
         return findDefaultRoom();
     }
 
     private Room findDefaultRoom() {
-        return roomRepository.findByCode(defaultRoomCode).orElse(null);
+        Room resolved = resolveRoomByCode(defaultRoomCode);
+        if (resolved == null) {
+            System.err.println("⚠️ [ROOM] Default room not found for code: " + defaultRoomCode);
+        }
+        return resolved;
+    }
+
+    private Room resolveRoomByCode(String rawCode) {
+        if (rawCode == null || rawCode.isBlank()) {
+            return null;
+        }
+
+        String code = rawCode.trim();
+        java.util.List<String> candidates = buildRoomCodeCandidates(code);
+        for (String candidate : candidates) {
+            if (candidate == null || candidate.isBlank()) continue;
+            Room room = roomRepository.findByCodeIgnoreCase(candidate).orElse(null);
+            if (room != null) return room;
+        }
+        return null;
+    }
+
+    private java.util.List<String> buildRoomCodeCandidates(String rawCode) {
+        java.util.List<String> candidates = new java.util.ArrayList<>();
+        String trimmed = rawCode.trim();
+        candidates.add(trimmed);
+
+        String upper = trimmed.toUpperCase();
+        candidates.add(upper);
+
+        String digits = upper.replaceAll("[^0-9]", "");
+        if (!digits.isEmpty()) {
+            candidates.add(digits);
+            candidates.add("ROOM-" + digits);
+            candidates.add("ROOM" + digits);
+        }
+
+        if (upper.startsWith("ROOM") && upper.contains(" ")) {
+            candidates.add(upper.replace(" ", "-"));
+        }
+
+        return candidates;
     }
 }

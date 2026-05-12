@@ -43,95 +43,86 @@ public class RoomController {
         return ResponseEntity.ok(rooms);
     }
 
-    /** Compact per-room view for overview lists (avoids downloading full histories). */
+    /**
+     * Resolve the sensor type from a SensorData record, using the same logic as
+     * the frontend Dashboard.jsx resolveSensorType() function.
+     */
+    private String resolveSensorType(SensorData item) {
+        if (item == null) return "";
+        String name = (item.getSensorName() != null ? item.getSensorName() : "").toLowerCase();
+        if (name.contains("temp")) return "temperature";
+        if (name.contains("smoke")) return "smoke";
+        if (name.contains("flame")) return "flame";
+
+        String topic = (item.getTopic() != null ? item.getTopic() : "").toLowerCase();
+        if (topic.contains("dht20") || topic.contains("temp")) return "temperature";
+        if (topic.contains("smoke")) return "smoke";
+        if (topic.contains("flame")) return "flame";
+        return "";
+    }
+
+    /**
+     * Build a RoomSummaryDTO by scanning the sensor history for a room,
+     * using the exact same sensor-type resolution logic as the user Dashboard.
+     * This guarantees admin and user see the same data.
+     */
+    private RoomSummaryDTO buildRoomSummary(Room room) {
+        Integer roomId = room.getId();
+        List<SensorData> records = sensorDataRepository.findByRoom_IdOrderByTimestampDesc(roomId);
+
+        SensorData latestTemp = null;
+        SensorData latestSmoke = null;
+        SensorData latestFlame = null;
+
+        for (SensorData record : records) {
+            String type = resolveSensorType(record);
+            if ("temperature".equals(type) && latestTemp == null) latestTemp = record;
+            else if ("smoke".equals(type) && latestSmoke == null) latestSmoke = record;
+            else if ("flame".equals(type) && latestFlame == null) latestFlame = record;
+            if (latestTemp != null && latestSmoke != null && latestFlame != null) break;
+        }
+
+        LocalDateTime updatedAt = maxTimestamp(
+                latestTemp != null ? latestTemp.getTimestamp() : null,
+                latestFlame != null ? latestFlame.getTimestamp() : null,
+                latestSmoke != null ? latestSmoke.getTimestamp() : null
+        );
+
+        return RoomSummaryDTO.builder()
+                .id(roomId)
+                .code(room.getCode())
+                .name(room.getName())
+                .monitoringEnabled(room.getMonitoringEnabled())
+                .userCount(userRepository.countByRoom_Id(roomId))
+                .temperature(latestTemp != null ? latestTemp.getMainValue() : null)
+                .smokeTotal(latestSmoke != null ? latestSmoke.getMainValue() : null)
+                .flame(latestFlame != null ? latestFlame.getMainValue() : null)
+                .updatedAt(updatedAt)
+                .build();
+    }
+
+    /** Compact per-room view for overview lists. */
     @GetMapping("/summary")
     public ResponseEntity<List<RoomSummaryDTO>> getRoomSummaries() {
         List<RoomSummaryDTO> summaries = roomRepository.findAll().stream()
-                .map(room -> {
-                    Integer roomId = room.getId();
-
-                    SensorData latestTemp = sensorDataRepository
-                            .findTopByRoom_IdAndTopicContainingOrderByTimestampDesc(roomId, "dht20");
-                    SensorData latestFlame = sensorDataRepository
-                            .findTopByRoom_IdAndTopicContainingOrderByTimestampDesc(roomId, "flame");
-
-                    SensorData latestMq2_1 = sensorDataRepository
-                            .findTopByRoom_IdAndTopicContainingAndSensorNameOrderByTimestampDesc(roomId, "smoke", "mq2_1");
-                    SensorData latestMq2_2 = sensorDataRepository
-                            .findTopByRoom_IdAndTopicContainingAndSensorNameOrderByTimestampDesc(roomId, "smoke", "mq2_2");
-
-                    float smokeTotal = 0f;
-                    smokeTotal += parseMq2Total(latestMq2_1);
-                    smokeTotal += parseMq2Total(latestMq2_2);
-
-                    LocalDateTime updatedAt = maxTimestamp(
-                            latestTemp != null ? latestTemp.getTimestamp() : null,
-                            latestFlame != null ? latestFlame.getTimestamp() : null,
-                            latestMq2_1 != null ? latestMq2_1.getTimestamp() : null,
-                            latestMq2_2 != null ? latestMq2_2.getTimestamp() : null
-                    );
-
-                    return RoomSummaryDTO.builder()
-                            .id(roomId)
-                            .code(room.getCode())
-                            .name(room.getName())
-                            .monitoringEnabled(room.getMonitoringEnabled())
-                            .userCount(userRepository.countByRoom_Id(roomId))
-                            .temperature(latestTemp != null ? latestTemp.getMainValue() : null)
-                            .smokeTotal((latestMq2_1 == null && latestMq2_2 == null) ? null : smokeTotal)
-                            .flame(latestFlame != null ? latestFlame.getMainValue() : null)
-                            .updatedAt(updatedAt)
-                            .build();
-                })
+                .map(this::buildRoomSummary)
                 .toList();
-
         return ResponseEntity.ok(summaries);
     }
 
-        @GetMapping("/{roomId}/overview")
-        public ResponseEntity<RoomOverviewDTO> getRoomOverview(@PathVariable Integer roomId) {
+    @GetMapping("/{roomId}/overview")
+    public ResponseEntity<RoomOverviewDTO> getRoomOverview(@PathVariable Integer roomId) {
         Room room = roomRepository.findById(roomId)
             .orElseThrow(() -> new RuntimeException("Room not found"));
 
-        SensorData latestTemp = sensorDataRepository
-            .findTopByRoom_IdAndTopicContainingOrderByTimestampDesc(roomId, "dht20");
-        SensorData latestFlame = sensorDataRepository
-            .findTopByRoom_IdAndTopicContainingOrderByTimestampDesc(roomId, "flame");
-
-        SensorData latestMq2_1 = sensorDataRepository
-            .findTopByRoom_IdAndTopicContainingAndSensorNameOrderByTimestampDesc(roomId, "smoke", "mq2_1");
-        SensorData latestMq2_2 = sensorDataRepository
-            .findTopByRoom_IdAndTopicContainingAndSensorNameOrderByTimestampDesc(roomId, "smoke", "mq2_2");
-
-        float smokeTotal = 0f;
-        smokeTotal += parseMq2Total(latestMq2_1);
-        smokeTotal += parseMq2Total(latestMq2_2);
-
-        LocalDateTime updatedAt = maxTimestamp(
-            latestTemp != null ? latestTemp.getTimestamp() : null,
-            latestFlame != null ? latestFlame.getTimestamp() : null,
-            latestMq2_1 != null ? latestMq2_1.getTimestamp() : null,
-            latestMq2_2 != null ? latestMq2_2.getTimestamp() : null
-        );
-
-        RoomSummaryDTO summary = RoomSummaryDTO.builder()
-            .id(roomId)
-            .code(room.getCode())
-            .name(room.getName())
-            .monitoringEnabled(room.getMonitoringEnabled())
-            .userCount(userRepository.countByRoom_Id(roomId))
-            .temperature(latestTemp != null ? latestTemp.getMainValue() : null)
-            .smokeTotal((latestMq2_1 == null && latestMq2_2 == null) ? null : smokeTotal)
-            .flame(latestFlame != null ? latestFlame.getMainValue() : null)
-            .updatedAt(updatedAt)
-            .build();
-
+        RoomSummaryDTO summary = buildRoomSummary(room);
         long recordCount = sensorDataRepository.countByRoom_Id(roomId);
+
         return ResponseEntity.ok(RoomOverviewDTO.builder()
             .summary(summary)
             .sensorRecordCount(recordCount)
             .build());
-        }
+    }
 
     private LocalDateTime maxTimestamp(LocalDateTime... values) {
         LocalDateTime max = null;
@@ -143,6 +134,7 @@ public class RoomController {
         return max;
     }
 
+    /* Kept for backward compatibility, but buildRoomSummary now uses mainValue directly */
     private float parseMq2Total(SensorData data) {
         if (data == null) return 0f;
         float fallbackSmoke = data.getMainValue() != null ? data.getMainValue() : 0f;

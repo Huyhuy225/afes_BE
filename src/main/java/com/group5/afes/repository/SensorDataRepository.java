@@ -19,5 +19,8 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
             String sensorName
     );
 
+    SensorData findTopByRoom_IdAndSensorNameContainingIgnoreCaseOrderByTimestampDesc(
+            Integer roomId, String sensorName);
+
     long countByRoom_Id(Integer roomId);
 }

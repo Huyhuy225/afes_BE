@@ -40,21 +40,39 @@ public class ControlPublisherService {
 
             client.connect(options);
 
-            String payload = room == null 
-                ? action 
-                : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
-            
-            MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
-            message.setQos(1);
-            message.setRetained(false);
+            for (String actionVariant : buildActionVariants(action)) {
+                String payload = buildControlPayload(actionVariant, room);
+                MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
+                message.setQos(1);
+                message.setRetained(false);
 
-            client.publish(controlTopic, message);
-            System.out.println("[CONTROL] Published to " + controlTopic + ": " + payload);
+                client.publish(controlTopic, message);
+                System.out.println("[CONTROL] Published to " + controlTopic + ": " + payload);
+            }
         } finally {
             if (client.isConnected()) {
                 client.disconnect();
             }
             client.close();
         }
+    }
+
+    private String buildControlPayload(String action, Room room) {
+        String safeAction = action != null ? action : "";
+        if (room == null) {
+            return "{\"action\":\"" + safeAction + "\"}";
+        }
+        return "{\"action\":\"" + safeAction + "\",\"roomId\":" + room.getId() + "}";
+    }
+
+    private java.util.List<String> buildActionVariants(String action) {
+        String safeAction = action != null ? action : "";
+        if ("reset_system".equals(safeAction)) {
+            return java.util.List.of("reset_system", "rest_system");
+        }
+        if ("rest_system".equals(safeAction)) {
+            return java.util.List.of("rest_system", "reset_system");
+        }
+        return java.util.List.of(safeAction);
     }
 }

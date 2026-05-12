@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.group5.afes.entity.Room;
+import com.group5.afes.security.AESUtils;
 import java.nio.charset.StandardCharsets;
 
 @Service
@@ -39,17 +40,19 @@ public class ControlPublisherService {
             options.setPassword(password.toCharArray());
 
             client.connect(options);
+            //json create
+            String actionJson = "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
+            //json encrypt
+            String encrypted = AESUtils.encryptData(actionJson);
+            String payload = "{\"cmd_enc_value\":\"" + encrypted + "\"}";
 
-            String payload = room == null 
-                ? action 
-                : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
-            
             MqttMessage message = new MqttMessage(payload.getBytes(StandardCharsets.UTF_8));
             message.setQos(1);
             message.setRetained(false);
 
             client.publish(controlTopic, message);
-            System.out.println("[CONTROL] Published to " + controlTopic + ": " + payload);
+            System.out.println("[CONTROL] Published encrypted to " + controlTopic);
+            System.out.println("[CONTROL] Original: " + actionJson);
         } finally {
             if (client.isConnected()) {
                 client.disconnect();

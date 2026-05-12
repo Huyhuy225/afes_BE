@@ -14,11 +14,8 @@ import org.springframework.messaging.MessageHandler;
 import org.springframework.messaging.MessagingException;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
-import javax.crypto.spec.IvParameterSpec;
-import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import com.group5.afes.security.AESUtils;
 
 @Service
 public class MqttReceiver implements MessageHandler {
@@ -35,51 +32,13 @@ public class MqttReceiver implements MessageHandler {
     private final ObjectMapper objectMapper = new ObjectMapper()
             .configure(com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
 
-    // Khóa và IV khớp hoàn toàn với file JS
-    private static final byte[] AES_KEY = {
-            (byte) 0x2B, (byte) 0x7E, (byte) 0x15, (byte) 0x16, (byte) 0x28, (byte) 0xAE, (byte) 0xD2, (byte) 0xA6,
-            (byte) 0xAB, (byte) 0xF7, (byte) 0x15, (byte) 0x88, (byte) 0x09, (byte) 0xCF, (byte) 0x4F, (byte) 0x3C
-    };
-
-    private static final byte[] AES_IV = {
-            (byte) 0x28, (byte) 0x34, (byte) 0xA5, (byte) 0xAF, (byte) 0xBE, (byte) 0xB8, (byte) 0x14, (byte) 0xF5,
-            (byte) 0x08, (byte) 0xE1, (byte) 0x24, (byte) 0xD2, (byte) 0xB3, (byte) 0xAB, (byte) 0xDB, (byte) 0xCE
-    };
-
-    private static final String TOPIC_ENCODED = "yolo_uno/sensors/all";
-
-    private String decryptData(String ciphertext) {
-        try {
-            if (ciphertext == null || ciphertext.isEmpty()) return null;
-
-            // Sử dụng NoPadding để khớp với setAutoPadding(false) bên Node.js
-            Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
-            SecretKeySpec keySpec = new SecretKeySpec(AES_KEY, "AES");
-            IvParameterSpec ivSpec = new IvParameterSpec(AES_IV);
-            cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
-
-            byte[] decodedBytes = Base64.getDecoder().decode(ciphertext);
-            byte[] decryptedBytes = cipher.doFinal(decodedBytes);
-
-            // Xử lý chuỗi sau giải mã: Giữ lại chỉ các ký tự hợp lệ của số (0-9, ., -)
-            // Điều này giúp loại bỏ hoàn toàn các ký tự rác (padding) từ AES NoPadding
-            String decrypted = new String(decryptedBytes, StandardCharsets.UTF_8);
-            String cleaned = decrypted.replaceAll("[^0-9.\\-]", "");
-            
-            return cleaned.trim();
-        } catch (Exception e) {
-            System.err.println("❌ [DECRYPT ERROR] " + e.getMessage());
-            return null;
-        }
-    }
-
     @Override
     public void handleMessage(Message<?> message) throws MessagingException {
         String payload = "";
         String topic = "";
         try {
             topic = message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC).toString();
-            
+
             Object rawPayload = message.getPayload();
             if (rawPayload instanceof byte[]) {
                 payload = new String((byte[]) rawPayload, StandardCharsets.UTF_8);
@@ -88,9 +47,10 @@ public class MqttReceiver implements MessageHandler {
             }
 
             System.out.println("📩 [Received Data] Topic: " + topic + " | Payload: " + payload);
-            
+
             // Nếu payload rỗng thì bỏ qua
-            if (payload == null || payload.trim().isEmpty()) return;
+            if (payload == null || payload.trim().isEmpty())
+                return;
 
             // Thử parse JSON
             JsonNode rootNode = null;
@@ -124,7 +84,7 @@ public class MqttReceiver implements MessageHandler {
             handleRawValue(topic, rootNode.asText(), rootNode);
         } else {
             // Duyệt qua tất cả các field nếu là object phức tạp
-            rootNode.fields().forEachRemaining(entry -> {
+            rootNode.properties().forEach(entry -> {
                 if (entry.getValue().isNumber()) {
                     handleRawValue(topic + "/" + entry.getKey(), entry.getValue().asText(), rootNode);
                 }
@@ -136,12 +96,15 @@ public class MqttReceiver implements MessageHandler {
         try {
             // Xác định loại cảm biến dựa trên topic
             String sensorName = "Unknown Sensor";
-            if (topic.contains("temp") || topic.contains("dht20")) sensorName = "Temp Sensor";
-            else if (topic.contains("smoke")) sensorName = "Smoke Sensor";
-            else if (topic.contains("flame")) sensorName = "Flame Sensor";
+            if (topic.contains("temp") || topic.contains("dht20"))
+                sensorName = "Temp Sensor";
+            else if (topic.contains("smoke"))
+                sensorName = "Smoke Sensor";
+            else if (topic.contains("flame"))
+                sensorName = "Flame Sensor";
 
             System.out.println(String.format("📊 [RAW DATA] %s: %s (Topic: %s)", sensorName, value, topic));
-            
+
             Room room = resolveRoom(rootNode != null ? rootNode : objectMapper.createObjectNode());
             saveData(topic, sensorName, value, room);
         } catch (Exception e) {
@@ -151,18 +114,22 @@ public class MqttReceiver implements MessageHandler {
 
     private void handleEncryptedData(JsonNode rootNode, String topic) {
         try {
-            String smokeVal = decryptData(rootNode.path("smoke_enc_value").asText(null));
-            String flameVal = decryptData(rootNode.path("flame_enc_value").asText(null));
-            String tempVal = decryptData(rootNode.path("temp_enc_value").asText(null));
+            String smokeVal = AESUtils.decryptData(rootNode.path("smoke_enc_value").asText(null));
+            String flameVal = AESUtils.decryptData(rootNode.path("flame_enc_value").asText(null));
+            String tempVal = AESUtils.decryptData(rootNode.path("temp_enc_value").asText(null));
 
             if (smokeVal != null || flameVal != null || tempVal != null) {
-                System.out.println(String.format("✅ [DECRYPTED] Smoke=%s, Flame=%s, Temp=%s", smokeVal, flameVal, tempVal));
+                System.out.println(
+                        String.format("✅ [DECRYPTED] Smoke=%s, Flame=%s, Temp=%s", smokeVal, flameVal, tempVal));
 
                 Room room = resolveRoom(rootNode);
 
-                if (smokeVal != null) saveData(topic, "Smoke Sensor", smokeVal, room);
-                if (flameVal != null) saveData(topic, "Flame Sensor", flameVal, room);
-                if (tempVal != null) saveData(topic, "Temp Sensor", tempVal, room);
+                if (smokeVal != null)
+                    saveData(topic, "Smoke Sensor", smokeVal, room);
+                if (flameVal != null)
+                    saveData(topic, "Flame Sensor", flameVal, room);
+                if (tempVal != null)
+                    saveData(topic, "Temp Sensor", tempVal, room);
 
                 System.out.println("🚀 [DATABASE] Đã đồng bộ dữ liệu mã hóa thành công!");
             } else {

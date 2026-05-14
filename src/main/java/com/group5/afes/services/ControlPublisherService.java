@@ -40,9 +40,11 @@ public class ControlPublisherService {
             options.setPassword(password.toCharArray());
 
             client.connect(options);
-            //json create
-            String actionJson = "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
-            //json encrypt
+            // json create
+            String actionJson = room == null
+                    ? "{\"action\":\"" + action + "\"}"
+                    : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
+            // json encrypt
             String encrypted = AESUtils.encryptData(actionJson);
             String payload = "{\"cmd_enc_value\":\"" + encrypted + "\"}";
 

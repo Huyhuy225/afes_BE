@@ -34,19 +34,18 @@ public class SensorDataController {
         return repository.findByRoom_IdOrderByTimestampDesc(roomId);
     }
 
-    @Autowired
-    private SensorDataRepository sensorDataRepository;
+
 
     @GetMapping("/history/latest")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public SensorData getLatest() {
         // Trả về bản ghi mới nhất dựa trên ID hoặc Timestamp
-        return sensorDataRepository.findTopByOrderByIdDesc();
+        return repository.findTopByOrderByIdDesc();
     }
 
     @GetMapping("/history/latest/room/{roomId}")
     @PreAuthorize("hasAnyRole('ADMIN', 'USER')")
     public SensorData getLatestByRoom(@PathVariable Integer roomId) {
-        return sensorDataRepository.findTopByRoom_IdOrderByIdDesc(roomId);
+        return repository.findTopByRoom_IdOrderByIdDesc(roomId);
     }
 }

@@ -52,23 +52,28 @@ public class MqttReceiver implements MessageHandler {
             if (payload == null || payload.trim().isEmpty())
                 return;
 
-            // Thử parse JSON
-            JsonNode rootNode = null;
-            try {
-                rootNode = objectMapper.readTree(payload);
-            } catch (Exception e) {
-                // Không phải JSON, xử lý như dữ liệu thô (plain text/number)
-                handleRawValue(topic, payload, null);
-                return;
-            }
+            // // Thử parse JSON
+            // JsonNode rootNode = null;
+            // try {
+            // rootNode = objectMapper.readTree(payload);
+            // } catch (Exception e) {
+            // // Không phải JSON, xử lý như dữ liệu thô (plain text/number)
+            // handleRawValue(topic, payload, null);
+            // return;
+            // }
 
-            // Nếu là JSON, kiểm tra xem có trường mã hóa không
-            if (rootNode.has("smoke_enc_value") || rootNode.has("flame_enc_value") || rootNode.has("temp_enc_value")) {
-                handleEncryptedData(rootNode, topic);
-            } else {
-                // JSON nhưng không mã hóa (ví dụ: {"value": 30.5}) hoặc JSON thô từ cảm biến
-                handleRawJson(rootNode, topic);
-            }
+            // // Nếu là JSON, kiểm tra xem có trường mã hóa không
+            // if (rootNode.has("smoke_enc_value") || rootNode.has("flame_enc_value") ||
+            // rootNode.has("temp_enc_value")) {
+            // handleEncryptedData(rootNode, topic);
+            // } else {
+            // // JSON nhưng không mã hóa (ví dụ: {"value": 30.5}) hoặc JSON thô từ cảm biến
+            // handleRawJson(rootNode, topic);
+            // }
+
+            // for encrypted
+            JsonNode rootNode = objectMapper.readTree(payload);
+            handleEncryptedData(rootNode, topic);
 
         } catch (Exception e) {
             System.err.println("❌ [ERROR] Lỗi xử lý MQTT message: " + e.getMessage());
@@ -76,60 +81,71 @@ public class MqttReceiver implements MessageHandler {
         }
     }
 
-    private void handleRawJson(JsonNode rootNode, String topic) {
-        // Hỗ trợ format {"value": 123} hoặc {"temp": 123, "humi": 45}
-        if (rootNode.has("value")) {
-            handleRawValue(topic, rootNode.get("value").asText(), rootNode);
-        } else if (rootNode.isNumber()) {
-            handleRawValue(topic, rootNode.asText(), rootNode);
-        } else {
-            // Duyệt qua tất cả các field nếu là object phức tạp
-            rootNode.properties().forEach(entry -> {
-                if (entry.getValue().isNumber()) {
-                    handleRawValue(topic + "/" + entry.getKey(), entry.getValue().asText(), rootNode);
-                }
-            });
-        }
-    }
+    // private void handleRawJson(JsonNode rootNode, String topic) {
+    // // Hỗ trợ format {"value": 123} hoặc {"temp": 123, "humi": 45}
+    // if (rootNode.has("value")) {
+    // handleRawValue(topic, rootNode.get("value").asText(), rootNode);
+    // } else if (rootNode.isNumber()) {
+    // handleRawValue(topic, rootNode.asText(), rootNode);
+    // } else {
+    // // Duyệt qua tất cả các field nếu là object phức tạp
+    // rootNode.properties().forEach(entry -> {
+    // if (entry.getValue().isNumber()) {
+    // handleRawValue(topic + "/" + entry.getKey(), entry.getValue().asText(),
+    // rootNode);
+    // }
+    // });
+    // }
+    // }
 
-    private void handleRawValue(String topic, String value, JsonNode rootNode) {
-        try {
-            // Xác định loại cảm biến dựa trên topic
-            String sensorName = "Unknown Sensor";
-            if (topic.contains("temp") || topic.contains("dht20"))
-                sensorName = "Temp Sensor";
-            else if (topic.contains("smoke"))
-                sensorName = "Smoke Sensor";
-            else if (topic.contains("flame"))
-                sensorName = "Flame Sensor";
+    // private void handleRawValue(String topic, String value, JsonNode rootNode) {
+    // try {
+    // // Xác định loại cảm biến dựa trên topic
+    // String sensorName = "Unknown Sensor";
+    // if (topic.contains("temp") || topic.contains("dht20"))
+    // sensorName = "Temp Sensor";
+    // else if (topic.contains("smoke"))
+    // sensorName = "Smoke Sensor";
+    // else if (topic.contains("flame"))
+    // sensorName = "Flame Sensor";
 
-            System.out.println(String.format("📊 [RAW DATA] %s: %s (Topic: %s)", sensorName, value, topic));
+    // System.out.println(String.format("📊 [RAW DATA] %s: %s (Topic: %s)",
+    // sensorName, value, topic));
 
-            Room room = resolveRoom(rootNode != null ? rootNode : objectMapper.createObjectNode());
-            saveData(topic, sensorName, value, room);
-        } catch (Exception e) {
-            System.err.println("❌ [ERROR] Lỗi lưu dữ liệu thô: " + e.getMessage());
-        }
-    }
+    // Room room = resolveRoom(rootNode != null ? rootNode :
+    // objectMapper.createObjectNode());
+    // saveData(topic, sensorName, value, room);
+    // } catch (Exception e) {
+    // System.err.println("❌ [ERROR] Lỗi lưu dữ liệu thô: " + e.getMessage());
+    // }
+    // }
 
     private void handleEncryptedData(JsonNode rootNode, String topic) {
         try {
+            // Giải mã room ID từ MCU (DEVICE_ID = "101" → code = "ROOM-101")
+            Room room = findDefaultRoom();
+            String roomIdStr = AESUtils.decryptData(rootNode.path("room_enc_value").asText(null));
+            if (roomIdStr != null) {
+                String roomCode = "ROOM-" + roomIdStr.trim();
+                room = roomRepository.findByCode(roomCode).orElse(findDefaultRoom());
+            }
+
             String smokeVal = AESUtils.decryptData(rootNode.path("smoke_enc_value").asText(null));
             String flameVal = AESUtils.decryptData(rootNode.path("flame_enc_value").asText(null));
             String tempVal = AESUtils.decryptData(rootNode.path("temp_enc_value").asText(null));
 
             if (smokeVal != null || flameVal != null || tempVal != null) {
                 System.out.println(
-                        String.format("✅ [DECRYPTED] Smoke=%s, Flame=%s, Temp=%s", smokeVal, flameVal, tempVal));
+                        String.format("✅ [DECRYPTED] Room=%s, Smoke=%s, Flame=%s, Temp=%s",
+                                roomIdStr, smokeVal, flameVal, tempVal));
 
-                Room room = resolveRoom(rootNode);
-
+                // Lưu với topic riêng cho mỗi cảm biến để RoomController query được
                 if (smokeVal != null)
-                    saveData(topic, "Smoke Sensor", smokeVal, room);
+                    saveData("yolo_uno/sensors/smoke", "Smoke Sensor", smokeVal, room);
                 if (flameVal != null)
-                    saveData(topic, "Flame Sensor", flameVal, room);
+                    saveData("yolo_uno/sensors/flame", "Flame Sensor", flameVal, room);
                 if (tempVal != null)
-                    saveData(topic, "Temp Sensor", tempVal, room);
+                    saveData("yolo_uno/sensors/dht20", "Temp Sensor", tempVal, room);
 
                 System.out.println("🚀 [DATABASE] Đã đồng bộ dữ liệu mã hóa thành công!");
             } else {
@@ -155,12 +171,13 @@ public class MqttReceiver implements MessageHandler {
         }
     }
 
-    private Room resolveRoom(JsonNode rootNode) {
-        if (rootNode != null && rootNode.hasNonNull("roomCode")) {
-            return roomRepository.findByCode(rootNode.get("roomCode").asText()).orElseGet(this::findDefaultRoom);
-        }
-        return findDefaultRoom();
-    }
+    // private Room resolveRoom(JsonNode rootNode) {
+    // if (rootNode != null && rootNode.hasNonNull("roomCode")) {
+    // return
+    // roomRepository.findByCode(rootNode.get("roomCode").asText()).orElseGet(this::findDefaultRoom);
+    // }
+    // return findDefaultRoom();
+    // }
 
     private Room findDefaultRoom() {
         return roomRepository.findByCode(defaultRoomCode).orElse(null);

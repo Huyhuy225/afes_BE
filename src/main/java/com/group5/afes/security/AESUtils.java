@@ -62,8 +62,8 @@ public class AESUtils {
             byte[] decodedBytes = Base64.getDecoder().decode(ciphertext);
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
 
-            // PKCS5Padding tự cắt padding → kết quả sạch, không cần regex
-            return new String(decryptedBytes, StandardCharsets.UTF_8).trim();
+            // PKCS5Padding tự cắt padding, nhưng nếu C++ padding bằng \0 thì cần clear sạch
+            return new String(decryptedBytes, StandardCharsets.UTF_8).replace("\0", "").trim();
         } catch (Exception e) {
             System.err.println("❌ [DECRYPT ERROR] " + e.getMessage());
             return null;

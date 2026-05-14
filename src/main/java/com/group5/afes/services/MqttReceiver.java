@@ -156,8 +156,25 @@ public class MqttReceiver implements MessageHandler {
     }
 
     private Room resolveRoom(JsonNode rootNode) {
-        if (rootNode != null && rootNode.hasNonNull("roomCode")) {
-            return roomRepository.findByCode(rootNode.get("roomCode").asText()).orElseGet(this::findDefaultRoom);
+        if (rootNode != null) {
+            if (rootNode.hasNonNull("room_enc_value")) {
+                try {
+                    String decryptedRoomStr = AESUtils.decryptData(rootNode.get("room_enc_value").asText());
+                    if (decryptedRoomStr != null) {
+                        try {
+                            Integer roomId = Integer.parseInt(decryptedRoomStr.trim());
+                            return roomRepository.findById(roomId).orElseGet(this::findDefaultRoom);
+                        } catch (NumberFormatException e) {
+                            // In case it's the room code instead of ID
+                            return roomRepository.findByCode(decryptedRoomStr.trim()).orElseGet(this::findDefaultRoom);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.err.println("⚠️ [WARNING] Failed to decrypt room_enc_value: " + e.getMessage());
+                }
+            } else if (rootNode.hasNonNull("roomCode")) {
+                return roomRepository.findByCode(rootNode.get("roomCode").asText()).orElseGet(this::findDefaultRoom);
+            }
         }
         return findDefaultRoom();
     }

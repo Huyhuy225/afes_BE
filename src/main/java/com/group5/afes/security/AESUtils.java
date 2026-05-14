@@ -47,14 +47,15 @@ public class AESUtils {
 
     /**
      * Giải mã Base64(AES-CBC encrypted) → chuỗi plain-text.
-     * Dùng PKCS5Padding để khớp với AESLib mặc định bên C++.
+     * Dùng NoPadding để tương thích với mọi padding mode của AESLib (ESP32).
+     * Sau đó tự cắt padding (PKCS7 hoặc zero-fill).
      */
     public static String decryptData(String ciphertext) {
         try {
             if (ciphertext == null || ciphertext.isEmpty())
                 return null;
 
-            Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+            Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
             SecretKeySpec keySpec = new SecretKeySpec(AES_KEY, "AES");
             IvParameterSpec ivSpec = new IvParameterSpec(AES_IV);
             cipher.init(Cipher.DECRYPT_MODE, keySpec, ivSpec);
@@ -62,8 +63,32 @@ public class AESUtils {
             byte[] decodedBytes = Base64.getDecoder().decode(ciphertext);
             byte[] decryptedBytes = cipher.doFinal(decodedBytes);
 
-            // PKCS5Padding tự cắt padding → kết quả sạch, không cần regex
-            return new String(decryptedBytes, StandardCharsets.UTF_8).trim();
+            // Tự strip padding: thử PKCS7 trước, nếu không thì strip zero-bytes
+            int len = decryptedBytes.length;
+            if (len > 0) {
+                int lastByte = decryptedBytes[len - 1] & 0xFF;
+                // Kiểm tra PKCS7 padding (giá trị cuối = số byte padding, tất cả byte padding bằng nhau)
+                if (lastByte >= 1 && lastByte <= 16) {
+                    boolean validPkcs7 = true;
+                    for (int i = len - lastByte; i < len; i++) {
+                        if ((decryptedBytes[i] & 0xFF) != lastByte) {
+                            validPkcs7 = false;
+                            break;
+                        }
+                    }
+                    if (validPkcs7) {
+                        len -= lastByte;
+                    }
+                }
+                // Nếu không phải PKCS7, strip trailing zero-bytes (zero-padding)
+                if (len == decryptedBytes.length) {
+                    while (len > 0 && decryptedBytes[len - 1] == 0) {
+                        len--;
+                    }
+                }
+            }
+
+            return new String(decryptedBytes, 0, len, StandardCharsets.UTF_8).trim();
         } catch (Exception e) {
             System.err.println("❌ [DECRYPT ERROR] " + e.getMessage());
             return null;

@@ -88,7 +88,9 @@ public class AESUtils {
                 }
             }
 
-            return new String(decryptedBytes, 0, len, StandardCharsets.UTF_8).trim();
+            String result = new String(decryptedBytes, 0, len, StandardCharsets.UTF_8);
+            // Loại bỏ các ký tự rác (non-printable) do padding không chuẩn từ C++
+            return result.replaceAll("[^\\x20-\\x7E]", "").trim();
         } catch (Exception e) {
             System.err.println("❌ [DECRYPT ERROR] " + e.getMessage());
             return null;

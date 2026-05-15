@@ -20,4 +20,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     );
 
     long countByRoom_Id(Integer roomId);
+    void deleteByRoom_Id(Integer roomId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.data.jpa.repository.Query("DELETE FROM SensorData s WHERE s.timestamp < :cutoff")
+    void deleteByTimestampBefore(@org.springframework.data.repository.query.Param("cutoff") java.time.LocalDateTime cutoff);
 }

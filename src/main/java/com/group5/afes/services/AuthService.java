@@ -57,6 +57,9 @@ public class AuthService {
         if (userRepository.existsByUsername(user.getUsername())) {
             throw new RuntimeException("Username already exists");
         }
+        if (user.getPhoneNumber() == null || user.getPhoneNumber().trim().isEmpty()) {
+            throw new RuntimeException("Phone number is required");
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         applyRoomIfPresent(user);
         user.setRole(resolveRole(user.getRole()));
@@ -70,6 +73,9 @@ public class AuthService {
         
         user.setFullName(userDetails.getFullName());
         user.setEmail(userDetails.getEmail());
+        if (userDetails.getPhoneNumber() != null && !userDetails.getPhoneNumber().trim().isEmpty()) {
+            user.setPhoneNumber(userDetails.getPhoneNumber());
+        }
         user.setIsActive(userDetails.getIsActive());
         user.setRoom(resolveRoom(userDetails.getRoom()));
         if (userDetails.getRole() != null) {

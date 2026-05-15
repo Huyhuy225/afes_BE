@@ -14,6 +14,7 @@ public class UserDTO {
     private Integer id;
     private String username;
     private String email;
+    private String phoneNumber;
     private String fullName;
     private String role;
     private Integer roomId;
@@ -26,6 +27,7 @@ public class UserDTO {
                 .id(user.getId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
                 .fullName(user.getFullName())
                 .role(user.getRole().getName())
                 .roomId(user.getRoom() != null ? user.getRoom().getId() : null)

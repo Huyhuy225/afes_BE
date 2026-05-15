@@ -33,7 +33,39 @@ public class RoomController {
     private final SensorDataRepository sensorDataRepository;
     private final ControlPublisherService controlPublisherService;
 
+    @PostMapping
+    @Transactional
+    public ResponseEntity<RoomDTO> createRoom(@RequestBody Room room) {
+        if (room.getMonitoringEnabled() == null) {
+            room.setMonitoringEnabled(false);
+        }
+        Room saved = roomRepository.save(room);
+        return ResponseEntity.ok(RoomDTO.from(saved, 0L));
+    }
 
+    @DeleteMapping("/{roomId}")
+    @Transactional
+    public ResponseEntity<Void> deleteRoom(@PathVariable Integer roomId) {
+        Room room = roomRepository.findById(roomId)
+                .orElseThrow(() -> new RuntimeException("Room not found"));
+        
+        // Unassign users from this room
+        List<User> usersInRoom = userRepository.findAll().stream()
+                .filter(u -> u.getRoom() != null && u.getRoom().getId().equals(roomId))
+                .toList();
+        for (User user : usersInRoom) {
+            user.setRoom(null);
+            userRepository.save(user);
+        }
+        
+        // Delete related sensor data
+        sensorDataRepository.deleteByRoom_Id(roomId);
+        
+        // Delete the room
+        roomRepository.delete(room);
+        
+        return ResponseEntity.noContent().build();
+    }
 
     @GetMapping
     public ResponseEntity<List<RoomDTO>> getRooms() {

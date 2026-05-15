@@ -41,9 +41,15 @@ public class ControlPublisherService {
 
             client.connect(options);
             // json create
-            String actionJson = room == null
-                    ? "{\"action\":\"" + action + "\"}"
-                    : "{\"action\":\"" + action + "\",\"roomId\":" + room.getId() + "}";
+            // Extract numeric device ID from room code (e.g. "ROOM-101" → 101)
+            // Hardware uses DEVICE_ID = "101", not the database primary key
+            String actionJson;
+            if (room == null) {
+                actionJson = "{\"action\":\"" + action + "\"}";
+            } else {
+                String deviceId = room.getCode().replaceAll("[^0-9]", "");
+                actionJson = "{\"action\":\"" + action + "\",\"roomId\":" + deviceId + "}";
+            }
             // json encrypt
             String encrypted = AESUtils.encryptData(actionJson);
             String payload = "{\"cmd_enc_value\":\"" + encrypted + "\"}";

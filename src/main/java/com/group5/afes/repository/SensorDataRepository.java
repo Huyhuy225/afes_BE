@@ -20,6 +20,9 @@ public interface SensorDataRepository extends JpaRepository<SensorData, Long> {
     );
 
     long countByRoom_Id(Integer roomId);
+
+    @org.springframework.data.jpa.repository.Modifying
+    @org.springframework.transaction.annotation.Transactional
     void deleteByRoom_Id(Integer roomId);
 
     @org.springframework.data.jpa.repository.Modifying

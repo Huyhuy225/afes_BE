@@ -1,4 +1,5 @@
 # 🛡️ AFES Backend - API Service
+nhuy test cicd 
 
 This repository contains the Backend service for the **Advanced Fire Emergency System (AFES)**. It provides a robust RESTful API built with **Java Spring Boot** to manage IoT sensor data (temperature, smoke), process safety statuses, and serve data to the Frontend dashboard.
 

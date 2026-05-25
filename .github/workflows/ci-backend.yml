@@ -9,6 +9,7 @@ on:
 env:
   IMAGE_NAME: huyhuy225/afes-backend
   IMAGE_TAG: ${{ github.run_number }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-test-push:
